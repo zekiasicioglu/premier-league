@@ -2,7 +2,13 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/vue3';
-import PlaceholderPattern from '../components/PlaceholderPattern.vue';
+import TeamSelect from '@/components/league/TeamSelect.vue';
+import { onMounted, ref } from 'vue';
+import { TeamSelectData } from '@/components/league/types';
+import Fixtures from '@/components/league/Fixtures.vue';
+import Simulation from '@/components/league/Simulation.vue';
+import axiosClient from '@/lib/axios';
+import { toast } from 'vue-sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -10,27 +16,42 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard',
     },
 ];
+
+const isFixtureCreated = ref<boolean>(false)
+const fixtureTeams = ref<TeamSelectData[]>([])
+const isLeagueStarted = ref<boolean>(false)
+
+onMounted( async () => {
+    try {
+        const response = await axiosClient.get('/api/fixtures/current');
+        if (response.status) {
+            isFixtureCreated.value = !!(Array.isArray(response.data.fixture) && response.data.fixture.length > 0);
+            isLeagueStarted.value = response.data.is_played;
+        }
+    } catch (error) {
+        console.error('Error fetching fixtures:', error);
+        isFixtureCreated.value = false;
+    }
+})
+
+const handleGeneratedFixture = (fixtures: any[], teams: TeamSelectData[]) => {
+    isFixtureCreated.value = true
+    fixtureTeams.value = teams
+}
+const handleStartSimulation = (isStarted: boolean) => {
+    isLeagueStarted.value = isStarted
+}
+
 </script>
 
 <template>
     <Head title="Dashboard" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-            <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-            </div>
-            <div class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 dark:border-sidebar-border md:min-h-min">
-                <PlaceholderPattern />
-            </div>
+        <div class="flex-1 flex-col space-y-8 p-8">
+            <TeamSelect v-if="!isFixtureCreated" @fixture-generated="handleGeneratedFixture"/>
+            <Fixtures v-if="isFixtureCreated && !isLeagueStarted" @start-simulation="handleStartSimulation"/>
+            <Simulation v-if="isFixtureCreated && isLeagueStarted"/>
         </div>
     </AppLayout>
 </template>

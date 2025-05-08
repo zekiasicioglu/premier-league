@@ -7,17 +7,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateFixtureRequest;
 use App\Models\Fixture;
 use App\Models\Team;
+use App\Services\Fixtures\Exceptions\FixtureCompletedException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class FixtureController extends Controller
 {
-    
+
     public function createFixture(CreateFixtureRequest $request): JsonResponse
     {
         $validated = $request->validated();
         $strategy = !empty($validated['strategy']) ? $validated['strategy'] : 'round-robin';
-        
+
         return response()->json([
             'success' => true,
             'data'    => FixtureServiceFacade::generateFixtures($validated['teams'], $strategy),
@@ -45,7 +46,7 @@ class FixtureController extends Controller
             $is_played = $fixture->is_played;
             return Fixture::formatFixtureData($fixture);
         });
-        
+
         $teamIds = $fixtures->pluck('home_team_id')
         ->merge($fixtures->pluck('away_team_id'))
         ->unique()
@@ -76,6 +77,20 @@ class FixtureController extends Controller
             ], 500);
         }
     }
+    public function deleteData(): JsonResponse
+    {
+        try {
+            return response()->json([
+                'success' => FixtureServiceFacade::deleteFixture(),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete fixture.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     public function playNextWeek(Request $request): JsonResponse
     {
@@ -84,8 +99,13 @@ class FixtureController extends Controller
             return response()->json([
                 'success' => true,
             ], 200);
-    
-        } catch (\Exception $e) {
+
+        } catch (FixtureCompletedException $e) {
+            return response()->json([
+                'success' => true,
+                'completed' => true
+            ], 200);
+        }catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to play matches',
@@ -93,5 +113,4 @@ class FixtureController extends Controller
             ], 500);
         }
     }
-
 }

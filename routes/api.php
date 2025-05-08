@@ -10,3 +10,4 @@ Route::get('/fixtures', [FixtureController::class, 'showFixtures']);
 Route::get('/fixtures/current', [FixtureController::class, 'getCurrentWeek']);
 Route::get('/fixtures/play_next_week', [FixtureController::class, 'playNextWeek']);
 Route::post('/fixtures/reset', [FixtureController::class, 'resetData']);
+Route::delete('/fixtures', [FixtureController::class, 'deleteData']); 

@@ -4,10 +4,10 @@ namespace App\Services\Fixtures;
 
 use App\Models\Fixture;
 use App\Models\Team;
+use App\Services\Fixtures\Exceptions\FixtureCompletedException;
 use App\Services\Fixtures\Strategies\FixtureStrategyInterface;
 use App\Services\Fixtures\FixtureStrategySelector;
 use App\Services\MatchMaking\MatchMakingService;
-use Exception;
 
 class FixtureService
 {
@@ -28,7 +28,7 @@ class FixtureService
         }
 
         $fixtures = $this->strategy->generateFixtures($teams);
-        
+
         Fixture::truncate();
         Fixture::insert(
             collect($fixtures)->map(fn($fixture) => [
@@ -43,18 +43,23 @@ class FixtureService
     public static function getFixtures(): array
     {
         $fixtures = Fixture::with(['home_team:id,name', 'away_team:id,name'])->get();
-        $formattedFixtures = $fixtures
-        ->map(function ($fixture) {
-            return [
-                'week' => $fixture->week,
+        $weeks = [];
+        $fixtures->each(function ($fixture) use (&$weeks) {
+            $weeks[$fixture->week][] = [
                 'home_team_id' => $fixture->home_team_id,
                 'home_team_name' => $fixture->home_team->name,
                 'away_team_id' => $fixture->away_team_id,
-                'away_team_name' => $fixture->away_team->name
+                'away_team_name' => $fixture->away_team->name,
             ];
-        })
-        ->filter()
-        ->toArray();
+        });
+
+        ksort($weeks);
+        $formattedFixtures = collect($weeks)->map(function ($matches, $week) {
+            return [
+                'week' => (int) $week,
+                'matches' => $matches,
+            ];
+        })->values()->toArray();
 
         return $formattedFixtures;
     }
@@ -69,16 +74,34 @@ class FixtureService
         ]);
         Team::query()->update([
             'prediction' => 0,
-            'played' => 0, 
-            'won' => 0, 
-            'drawn' => 0, 
-            'lost' => 0, 
-            'goals_for' => 0, 
-            'goals_against' => 0, 
-            'goals_difference' => 0, 
+            'played' => 0,
+            'won' => 0,
+            'drawn' => 0,
+            'lost' => 0,
+            'goals_for' => 0,
+            'goals_against' => 0,
+            'goals_difference' => 0,
             'points' => 0,
         ]);
-        
+
+        return true;
+    }
+
+    public static function deleteFixture(): bool
+    {
+        Fixture::truncate();
+        Team::query()->update([
+            'prediction' => 0,
+            'played' => 0,
+            'won' => 0,
+            'drawn' => 0,
+            'lost' => 0,
+            'goals_for' => 0,
+            'goals_against' => 0,
+            'goals_difference' => 0,
+            'points' => 0,
+        ]);
+
         return true;
     }
 
@@ -90,7 +113,7 @@ class FixtureService
         ->get();
 
         if ($fixtures->isEmpty()) {
-            throw new Exception('No more fixtures to play');
+            throw new FixtureCompletedException('No more fixtures to play');
         }
         foreach ($fixtures as $fixture) {
             $homeTeam = $fixture->home_team;
@@ -101,7 +124,7 @@ class FixtureService
 
             $homeScore = $matchMakingService->generateBiasedScore($chances['home']);
             $awayScore = $matchMakingService->generateBiasedScore($chances['away']);
-            
+
             $fixture->update([
                 'home_team_score' => $homeScore,
                 'away_team_score' => $awayScore,
@@ -114,7 +137,7 @@ class FixtureService
     public static function updateTeamPoints(int $teamId, int $teamScore, int $opponentScore): void
     {
         $team = Team::find($teamId);
-        
+
         if ($teamScore > $opponentScore) {
             $team->points += 3;
             $team->won += 1;
@@ -136,9 +159,9 @@ class FixtureService
     public static function updateTeamPredictions(int $teamId): void
     {
         $team = Team::find($teamId);
-        
+
         $played = max(1, $team->played);
-    
+
         $strengthFactor = $team->strength / 100;
 
         $rawScore = ((3 * $team->won) + (1 * $team->drawn) + $strengthFactor) / (3 * $played + 1);
