@@ -34,7 +34,7 @@ class FixtureService
 
         $fixtures = $this->strategy->generateFixtures($teams);
 
-        Fixture::truncate();
+        Fixture::query()->delete();
         Fixture::insert(
             collect($fixtures)->map(fn($fixture) => [
                 'week' => $fixture['week'],
@@ -94,7 +94,7 @@ class FixtureService
 
     public static function deleteFixture(): bool
     {
-        Fixture::truncate();
+        Fixture::query()->delete();
         Team::query()->update([
             'prediction' => 0,
             'played' => 0,

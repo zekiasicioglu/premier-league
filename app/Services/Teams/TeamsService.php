@@ -33,8 +33,7 @@ class TeamsService
         if (empty($teams)) {
             return false;
         }
-
-        Team::truncate();
+        Team::query()->delete();
         Team::insert($teams);
         
         return true;    
