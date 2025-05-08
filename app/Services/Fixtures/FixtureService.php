@@ -11,11 +11,16 @@ use App\Services\MatchMaking\MatchMakingService;
 
 class FixtureService
 {
-    private FixtureStrategyInterface $strategy;
+    public FixtureStrategyInterface $strategy;
 
     public function setStrategy(string $type): void
     {
         $this->strategy = FixtureStrategySelector::getStrategy($type);
+    }
+
+    public function getStrategy(): ?FixtureStrategyInterface
+    {
+        return $this->strategy;
     }
 
     public function generateFixtures(array $teams, ?string $strategyType = null): array

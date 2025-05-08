@@ -14,6 +14,11 @@ class TeamsService
         $this->strategy = TeamsStrategySelector::getStrategy($type);
     }
 
+    public function getStrategy(): ?TeamsStrategyInterface
+    {
+        return $this->strategy;
+    }
+
     public function seedTeams(?string $strategyType = null): bool
     {
         if(!empty($strategyType)){
